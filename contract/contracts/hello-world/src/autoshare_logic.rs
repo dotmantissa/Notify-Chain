@@ -1,7 +1,8 @@
 use crate::base::errors::Error;
 use crate::base::events::{
     AdminTransferred, AuthorizationFailure, AutoshareCreated, AutoshareUpdated, ContractPaused,
-    ContractUnpaused, GroupActivated, GroupDeactivated, NotificationCategory, Withdrawal,
+    ContractUnpaused, GroupActivated, GroupDeactivated, NotificationCategory,
+    ScheduledNotificationCancelled, Withdrawal,
 };
 use crate::base::types::{AutoShareDetails, GroupMember, PaymentHistory};
 use soroban_sdk::{contracttype, token, Address, BytesN, Env, String, Vec};
@@ -798,6 +799,39 @@ pub fn withdraw(
         amount,
     }
     .publish(&env);
+    Ok(())
+}
+
+// ============================================================================
+// Scheduled Notification Cancellation
+// ============================================================================
+
+/// Cancels a scheduled notification identified by `notification_id` and emits
+/// a [`ScheduledNotificationCancelled`] event so off-chain consumers can track
+/// the lifecycle of every scheduled notification in real time.
+///
+/// The contract does not keep a registry of scheduled notifications; callers are
+/// responsible for submitting the correct identifier. Any authenticated address
+/// may cancel a notification — access control beyond authentication is left to
+/// the application layer.
+pub fn cancel_notification(
+    env: Env,
+    notification_id: BytesN<32>,
+    caller: Address,
+) -> Result<(), Error> {
+    caller.require_auth();
+
+    if get_paused_status(&env) {
+        return Err(Error::ContractPaused);
+    }
+
+    ScheduledNotificationCancelled {
+        caller,
+        category: NotificationCategory::Notification,
+        notification_id,
+    }
+    .publish(&env);
+
     Ok(())
 }
 
